@@ -2,8 +2,6 @@
 import { useState, useEffect } from 'react';
 
 
-
-
 /**
  * A component that renders a search bar with a text input and a search button.
  *
