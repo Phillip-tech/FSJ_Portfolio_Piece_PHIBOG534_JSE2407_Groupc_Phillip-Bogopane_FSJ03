@@ -107,8 +107,8 @@ function ProductList({ searchParams }) {
 
 export default function Page() {
   return (
-    // <Suspense fallback={<Loading />}>
+    <Suspense fallback={<Loading />}>
       <ProductList searchParams={useSearchParams()} />
-    //{/* </Suspense> */}
+     </Suspense> 
   );
 }
