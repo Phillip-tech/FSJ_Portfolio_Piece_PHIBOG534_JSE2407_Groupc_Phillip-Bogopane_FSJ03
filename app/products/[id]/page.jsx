@@ -1,46 +1,31 @@
 "use client";
 
 import React, { Suspense, useState, useEffect } from 'react';
-import { getProduct } from '../../api/api';
 import ProductGallery from '../../components/ProductGallery';
 import Loading from '../../components/Loading';
 import ErrorMessage from '../../components/ErrorMessage';
-import { Star, ShoppingCart, Facebook, Instagram, Twitter, Phone, Globe } from 'lucide-react';
+import { Star, ShoppingCart, Facebook, Instagram, Twitter, Phone, Globe, Edit, Trash2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const GoBackButton = dynamic(() => import('../../components/GoBackButton'), { ssr: false });
 
-/**
- * ProductPage displays a product with reviews and a gallery.
- *
- * It fetches the product data with the `getProduct` function and stores it in the component state.
- * It also fetches the reviews and sorts them based on the selected sort option.
- * The component renders a product gallery, product details, and the reviews.
- *
- * If there is an error fetching the product, it renders an error message.
- * If the product is not found, it renders a 404 page.
- *
- * The component also updates the document title to the product name.
- *
- * @param {string} params.id - The product ID.
- */
 export default function ProductPage({ params }) {
   const [product, setProduct] = useState(null);
   const [error, setError] = useState(null);
   const [sortOption, setSortOption] = useState('date');
   const [sortedReviews, setSortedReviews] = useState([]);
-  const [averageRating,setAverageRating] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [isAddingReview, setIsAddingReview] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [newReview, setNewReview] = useState({ reviewerName: '', reviewerEmail: '', rating: 5, comment: '' });
 
   useEffect(() => {
     async function fetchProduct() {
       try {
-        console.log(params.id)
         const res = await fetch(`/api/products/00${params.id}`);
-        
         const fetchedProduct = await res.json();
-        console.log(fetchedProduct)
         setProduct(fetchedProduct);
-        setAverageRating(fetchedProduct.reviews.reduce((acc, review) => acc + review.rating, 0) )
+        updateAverageRating(fetchedProduct.reviews);
         setSortedReviews(fetchedProduct.reviews);
       } catch (err) {
         setError('Failed to load product. Please try again later.');
@@ -52,43 +37,92 @@ export default function ProductPage({ params }) {
 
   useEffect(() => {
     if (product) {
-      document.title = product.title; // Set the document title to the product's name
+      document.title = product.title;
     }
   }, [product]);
 
   useEffect(() => {
     if (product && product.reviews) {
-      let sorted = [...product.reviews];
-      switch (sortOption) {
-        case 'rating-asc':
-          sorted = sorted.sort((a, b) => a.rating - b.rating);
-          break;
-        case 'rating-desc':
-          sorted = sorted.sort((a, b) => b.rating - a.rating);
-          break;
-        case 'date-asc':
-          sorted = sorted.sort((a, b) => new Date(a.date) - new Date(b.date));
-          break;
-        case 'date-desc':
-          sorted = sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
-          break;
-        default:
-          sorted = sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
-          break;
-      }
-      setSortedReviews(sorted);
+      sortReviews();
     }
   }, [sortOption, product]);
 
+  const updateAverageRating = (reviews) => {
+    const avg = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length;
+    setAverageRating(avg || 0);
+  };
+
+  const sortReviews = () => {
+    let sorted = [...product.reviews];
+    switch (sortOption) {
+      case 'rating-asc':
+        sorted = sorted.sort((a, b) => a.rating - b.rating);
+        break;
+      case 'rating-desc':
+        sorted = sorted.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'date-asc':
+        sorted = sorted.sort((a, b) => new Date(a.date) - new Date(b.date));
+        break;
+      case 'date-desc':
+        sorted = sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
+        break;
+      default:
+        sorted = sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
+        break;
+    }
+    setSortedReviews(sorted);
+  };
+
+  const handleAddReview = () => {
+    setIsAddingReview(true);
+    setEditingReviewId(null);
+    setNewReview({ reviewerName: '', reviewerEmail: '', rating: 5, comment: '' });
+  };
+
+  const handleEditReview = (review) => {
+    setIsAddingReview(true);
+    setEditingReviewId(review.id);
+    setNewReview({ ...review });
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    const updatedReviews = product.reviews.filter(review => review.id !== reviewId);
+    setProduct({ ...product, reviews: updatedReviews });
+    updateAverageRating(updatedReviews);
+    sortReviews();
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    let updatedReviews;
+    if (editingReviewId) {
+      updatedReviews = product.reviews.map(review =>
+        review.id === editingReviewId ? { ...newReview, date: new Date().toISOString() } : review
+      );
+    } else {
+      const newReviewWithId = {
+        ...newReview,
+        id: Date.now(),
+        date: new Date().toISOString()
+      };
+      updatedReviews = [...product.reviews, newReviewWithId];
+    }
+    setProduct({ ...product, reviews: updatedReviews });
+    updateAverageRating(updatedReviews);
+    sortReviews();
+    setIsAddingReview(false);
+    setEditingReviewId(null);
+  };
+
   if (error) return <ErrorMessage message={error} />;
   if (!product) return <Loading />;
-
- // const averageRating = product.length>0? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length:null
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <GoBackButton />
       <Suspense fallback={<Loading />}>
+        {/* Product details section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           <ProductGallery images={product.images} />
           <div>
@@ -115,82 +149,174 @@ export default function ProductPage({ params }) {
             </button>
           </div>
         </div>
-        {sortedReviews.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-3xl font-semibold text-center mb-8">Customer Reviews</h2>
-            <div className="flex justify-center mb-4">
-              <div className="relative inline-block">
-                <select
-                  value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value)}
-                  className="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
-                >
-                  <option value="">Default</option>
-                  <option value="rating-asc">Rating (Ascending)</option>
-                  <option value="rating-desc">Rating (Descending)</option>
-                  <option value="date-asc">Date (Ascending)</option>
-                  <option value="date-desc">Date (Descending)</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707a.5.5 0 0 1 .707-.707V11h5v2h-5v1.05a.5.5 0 0 1-.707-.707l-.707-.707a.5.5 0 0 1 0-.707zm0-6l.707.707a.5.5 0 0 1-.707-.707L9 4.293l-.707-.707a.5.5 0 0 1 0-.707.5.5 0 0 1 .707-.707l.707.707a.5.5 0 0 1 0 .707zm0 6l.707.707a.5.5 0 0 1-.707-.707L9 10.293l-.707-.707a.5.5 0 0 1 0-.707.5.5 0 0 1 .707-.707l.707.707a.5.5 0 0 1 0 .707z"/></svg>
-                </div>
+        
+        {/* Reviews section */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-semibold text-center mb-8">Customer Reviews</h2>
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={handleAddReview}
+              className="bg-green-500 text-white px-4 py-2 rounded-full hover:bg-green-600 transition-colors duration-300"
+            >
+              Add Review
+            </button>
+            <div className="relative inline-block">
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="block appearance-none w-full bg-white border border-gray-400 hover:border-gray-500 px-4 py-2 pr-8 rounded shadow leading-tight focus:outline-none focus:shadow-outline"
+              >
+                <option value="">Default</option>
+                <option value="rating-asc">Rating (Ascending)</option>
+                <option value="rating-desc">Rating (Descending)</option>
+                <option value="date-asc">Date (Ascending)</option>
+                <option value="date-desc">Date (Descending)</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L10 14.657l.707-.707.707-.707a1 1 0 0 0-1.414-1.414L10 12.243l-.707-.707a1 1 0 0 0-1.414 1.414z"/></svg>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {sortedReviews.map((review, index) => (
-                <div key={index} className="bg-white shadow-lg rounded-lg overflow-hidden">
-                  <div className="relative bg-blue-500 p-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="text-white">
-                        <div className="font-bold">CUSTOMER</div>
-                        <div className="text-xs">REVIEW</div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Facebook className="w-4 h-4 text-white" />
-                        <Instagram className="w-4 h-4 text-white" />
-                        <Twitter className="w-4 h-4 text-white" />
-                      </div>
+          </div>
+
+          {/* Add/Edit Review Form */}
+          {isAddingReview && (
+            <form onSubmit={handleReviewSubmit} className="bg-white shadow-lg rounded-lg overflow-hidden mb-8 p-6">
+              <h3 className="text-xl font-semibold mb-4">{editingReviewId ? 'Edit Review' : 'Add Review'}</h3>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="reviewerName">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="reviewerName"
+                  value={newReview.reviewerName}
+                  onChange={(e) => setNewReview({ ...newReview, reviewerName: e.target.value })}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="reviewerEmail">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="reviewerEmail"
+                  value={newReview.reviewerEmail}
+                  onChange={(e) => setNewReview({ ...newReview, reviewerEmail: e.target.value })}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="rating">
+                  Rating
+                </label>
+                <select
+                  id="rating"
+                  value={newReview.rating}
+                  onChange={(e) => setNewReview({ ...newReview, rating: Number(e.target.value) })}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                >
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <option key={rating} value={rating}>{rating} Star{rating !== 1 ? 's' : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="comment">
+                  Comment
+                </label>
+                <textarea
+                  id="comment"
+                  value={newReview.comment}
+                  onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  rows="4"
+                  required
+                ></textarea>
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  type="submit"
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                >
+                  {editingReviewId ? 'Update Review' : 'Submit Review'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingReview(false);
+                    setEditingReviewId(null);
+                  }}
+                  className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+                   {/* Reviews Grid */}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {sortedReviews.map((review) => (
+              <div key={review.id} className="bg-white shadow-lg rounded-lg overflow-hidden">
+                <div className="relative bg-blue-500 p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="text-white">
+                      <div className="font-bold">CUSTOMER</div>
+                      <div className="text-xs">REVIEW</div>
                     </div>
-                    <h2 className="text-3xl font-bold text-white mb-2">Client</h2>
-                    <h1 className="text-4xl font-bold text-white">TESTIMONY</h1>
-                    <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2">
-                      <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-orange-500 bg-gray-200">
-                        {/* Placeholder for user avatar */}
-                      </div>
+                    <div className="flex space-x-2">
+                      <Facebook className="w-4 h-4 text-white" />
+                      <Instagram className="w-4 h-4 text-white" />
+                      <Twitter className="w-4 h-4 text-white" />
                     </div>
                   </div>
-                  <div className="px-6 py-4 pt-12 bg-gray-100">
-                    <div className="text-center">
-                      <h3 className="font-bold text-xl">{review.reviewerName}</h3>
-                      <p className="text-sm text-gray-500">{review.reviewerEmail}</p>
-                      <p className="text-sm text-gray-600">{new Date(review.date).toLocaleDateString()}</p>
-                      <div className="flex justify-center my-2">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`} />
-                        ))}
-                      </div>
+                  <h2 className="text-3xl font-bold text-white mb-2">Client</h2>
+                  <h1 className="text-4xl font-bold text-white">TESTIMONY</h1>
+                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2">
+                    <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-orange-500 bg-gray-200">
+                      {/* Placeholder for user avatar */}
                     </div>
-                    <blockquote className="text-center text-gray-600 italic mt-4">
-                      &quot;{review.comment}&quot;
-                    </blockquote>
-                  </div>
-                  <div className="flex justify-around px-6 py-4 bg-gray-100">
-                    <button className="flex items-center bg-gray-200 hover:bg-gray-300 rounded-md px-2 py-1">
-                      <Phone className="w-4 h-4 mr-1" />
-                      Contact
-                    </button>
-                    <button className="flex items-center bg-gray-200 hover:bg-gray-300 rounded-md px-2 py-1">
-                      <Globe className="w-4 h-4 mr-1" />
-                      Visit Website
-                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="px-6 py-4 pt-12 bg-gray-100">
+                  <div className="text-center">
+                    <h3 className="font-bold text-xl">{review.reviewerName}</h3>
+                    <p className="text-sm text-gray-500">{review.reviewerEmail}</p>
+                    <p className="text-sm text-gray-600">{new Date(review.date).toLocaleDateString()}</p>
+                    <div className="flex justify-center my-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <blockquote className="text-center text-gray-600 italic mt-4">
+                    &quot;{review.comment}&quot;
+                  </blockquote>
+                </div>
+                <div className="flex justify-around px-6 py-4 bg-gray-100">
+                  <button
+                    onClick={() => handleEditReview(review)}
+                    className="flex items-center bg-yellow-500 hover:bg-yellow-600 text-white rounded-md px-2 py-1"
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteReview(review.id)}
+                    className="flex items-center bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </Suspense>
     </div>
   );
 }
-
