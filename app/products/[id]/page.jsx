@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense, useState, useEffect } from 'react';
-import { getProduct } from '../../lib/api';
+import { getProduct } from '../../api/api';
 import ProductGallery from '../../components/ProductGallery';
 import Loading from '../../components/Loading';
 import ErrorMessage from '../../components/ErrorMessage';
@@ -29,12 +29,18 @@ export default function ProductPage({ params }) {
   const [error, setError] = useState(null);
   const [sortOption, setSortOption] = useState('date');
   const [sortedReviews, setSortedReviews] = useState([]);
+  const [averageRating,setAverageRating] = useState([]);
 
   useEffect(() => {
     async function fetchProduct() {
       try {
-        const fetchedProduct = await getProduct(params.id);
+        console.log(params.id)
+        const res = await fetch(`/api/products/00${params.id}`);
+        
+        const fetchedProduct = await res.json();
+        console.log(fetchedProduct)
         setProduct(fetchedProduct);
+        setAverageRating(fetchedProduct.reviews.reduce((acc, review) => acc + review.rating, 0) )
         setSortedReviews(fetchedProduct.reviews);
       } catch (err) {
         setError('Failed to load product. Please try again later.');
@@ -77,7 +83,7 @@ export default function ProductPage({ params }) {
   if (error) return <ErrorMessage message={error} />;
   if (!product) return <Loading />;
 
-  const averageRating = product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length;
+ // const averageRating = product.length>0? product.reviews.reduce((acc, review) => acc + review.rating, 0) / product.reviews.length:null
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

@@ -11,7 +11,7 @@ import SearchBar from '../components/SearchBar';
 import CategoryFilter from '../components/CategoryFilter';
 import SortDropdown from '../components/SortDropdown';
 import ResetButton from '../components/ResetButton';
-import { getProducts } from '../lib/api';
+import { getProducts } from '../api/api';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -32,15 +32,12 @@ function ProductList({ searchParams }) {
     async function fetchProducts() {
       try {
         setLoading(true);
-        const { products, total } = await getProducts({
-          page,
-          limit: ITEMS_PER_PAGE,
-          search,
-          category,
-          sort
-        });
+        const response = await fetch(`/api/products?search=${search}&category=${category}&page=${page}&sort=${sort}`);
+        console.log(response)
+        const products = await response.json();
+        console.log(products)
         setProducts(products);
-        setTotalProducts(total);
+        // setTotalProducts(total);
         setError(null);
       } catch (err) {
         console.error('Error fetching products:', err);
@@ -109,6 +106,6 @@ export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
       <ProductList searchParams={useSearchParams()} />
-     </Suspense> 
+    </Suspense> 
   );
 }
