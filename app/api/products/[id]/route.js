@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
   console.log(id,'123')
   try {
     // Create a reference to the product document in Firestore
-    const productRef = doc(db, 'products', id);
+    const productRef = doc(db, 'products', `00${id}`);
     
     // Fetch the document snapshot from Firestore
     const productSnap = await getDoc(productRef);
