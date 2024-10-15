@@ -61,6 +61,7 @@ async function getLastVisibleDoc(query, skip) {
   return snapshot.docs[snapshot.docs.length - 1];
 }
 
+
 export async function getCategories() {
   const categoriesRef = collection(db, 'categories');
   const snapshot = await getDocs(categoriesRef);
