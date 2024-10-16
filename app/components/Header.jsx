@@ -5,9 +5,9 @@ import Link from 'next/link'; // Correct import
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
 
-/**
- * Toggle the hamburger menu state between open and closed.
- */
+  /**
+   * Toggle the hamburger menu state between open and closed.
+   */
   const toggleMenu = () => {
     setIsOpen(!isOpen);
   };
@@ -54,12 +54,13 @@ const Header = () => {
           <Link href="/products">
             <span className="text-gray-700 hover:text-blue-500">Products</span>
           </Link>
-          <Link href="/about">
+          {/* Commented out 'About' and 'Contact' links */}
+          {/* <Link href="/about">
             <span className="text-gray-700 hover:text-blue-500">About</span>
           </Link>
           <Link href="/contact">
             <span className="text-gray-700 hover:text-blue-500">Contact</span>
-          </Link>
+          </Link> */}
         </nav>
       </div>
 
@@ -72,7 +73,8 @@ const Header = () => {
                 <span onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">Products</span>
               </Link>
             </li>
-            <li>
+            {/* Commented out 'About' and 'Contact' links */}
+            {/* <li>
               <Link href="/about">
                 <span onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">About</span>
               </Link>
@@ -81,7 +83,7 @@ const Header = () => {
               <Link href="/contact">
                 <span onClick={toggleMenu} className="text-gray-700 hover:text-blue-500">Contact</span>
               </Link>
-            </li>
+            </li> */}
           </ul>
         </nav>
       )}
